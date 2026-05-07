@@ -1,51 +1,71 @@
-import React from 'react'
-import { LogBox } from 'react-native'
-import { NavigationContainer } from '@react-navigation/native'
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { Icon } from './Icon'
-import FastImageExamples from './FastImageExamples'
-import FastImageGrid from './FastImageGrid'
-import DefaultImageGrid from './DefaultImageGrid'
+import React, { useMemo } from 'react'
+import {
+  Dimensions,
+  FlatList,
+  ListRenderItem,
+  StyleSheet,
+  View,
+} from 'react-native'
+import FastImage from 'react-native-fast-image'
+import Animated from 'react-native-reanimated'
 
-const Tab = createBottomTabNavigator()
+const NUM_COLUMNS = 4
+const NUM_IMAGES = 100
+const SPACING = 4
+const SCREEN_WIDTH = Dimensions.get('window').width
+const ITEM_SIZE =
+  (SCREEN_WIDTH - SPACING * (NUM_COLUMNS + 1)) / NUM_COLUMNS
 
-LogBox.ignoreLogs([
-    'Warning: isMounted(...) is deprecated',
-    'Module RCTImageLoader',
-])
+type Item = { id: string; uri: string }
 
-export default function App() {
-    return (
-        <NavigationContainer>
-            <Tab.Navigator screenOptions={{ headerShown: false }}>
-                <Tab.Screen
-                    name="FastImage Example"
-                    component={FastImageExamples}
-                    options={{
-                        tabBarIcon: (props) => (
-                            <Icon name="ios-information-circle" {...props} />
-                        ),
-                    }}
-                />
-                <Tab.Screen
-                    name="Image Grid"
-                    component={DefaultImageGrid}
-                    options={{
-                        tabBarIcon: (props) => (
-                            <Icon name="image-outline" {...props} />
-                        ),
-                    }}
-                />
-                <Tab.Screen
-                    name="FastImage Grid"
-                    component={FastImageGrid}
-                    options={{
-                        tabBarIcon: (props) => (
-                            <Icon name="images-outline" {...props} />
-                        ),
-                    }}
-                />
-            </Tab.Navigator>
-        </NavigationContainer>
-    )
+const buildData = (): Item[] =>
+  Array.from({ length: NUM_IMAGES }, (_, i) => ({
+    id: String(i),
+    // picsum.photos `?index=` is a query, not a seed — use /seed/<n> for stable, distinct images
+    uri: `https://picsum.photos/seed/${i}/2056/2056`,
+  }))
+
+
+const Home = () => {
+  const data = useMemo(buildData, [])
+
+  const renderItem: ListRenderItem<Item> = ({ item }) => (
+    <FastImage
+      style={styles.cell}
+      source={{ uri: item.uri }}
+      resizeMode="cover"
+      transition="fade"
+      allowDownscaling
+    />
+  )
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={data}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        numColumns={NUM_COLUMNS}
+        contentContainerStyle={styles.list}
+        columnWrapperStyle={styles.row}
+        initialNumToRender={16}
+        windowSize={5}
+        removeClippedSubviews
+      />
+    </View>
+  )
 }
+
+export default Home
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  list: { padding: SPACING },
+  row: { gap: SPACING, marginBottom: SPACING },
+  cell: {
+    width: ITEM_SIZE,
+    height: ITEM_SIZE,
+    backgroundColor: '#eee',
+    borderRadius: 6,
+  },
+})

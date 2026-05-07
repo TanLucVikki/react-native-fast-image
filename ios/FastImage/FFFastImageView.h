@@ -19,6 +19,8 @@
 @property (nonatomic, strong) FFFastImageSource *source;
 @property (nonatomic, strong) UIImage *defaultSource;
 @property (nonatomic, strong) UIColor *imageColor;
+@property (nonatomic, assign) BOOL allowDownscaling;
+@property (nonatomic, assign) FFFTransition transition;
 
 @end
 

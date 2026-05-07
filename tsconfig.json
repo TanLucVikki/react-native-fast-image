@@ -1,14 +1,15 @@
 {
   "compilerOptions": {
+    "rootDir": "./src",
+    "paths": {
+      "react-native-fast-image": ["./src/index"]
+    },
     "target": "ESNext",
     "module": "ESNext",
     "composite": true,
     "incremental": true,
     "lib": ["ESNext"],
     "importHelpers": true,
-    "declarationMap": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
     "sourceMap": false,
     "strict": true,
     "noImplicitAny": true,
@@ -26,9 +27,10 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "declaration": true,
     "declarationDir": "./dist",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "outDir": "./dist"
   },
-  "include": ["./src"]
+  "include": ["./src"],
+  "exclude": ["node_modules", "dist"]
 }

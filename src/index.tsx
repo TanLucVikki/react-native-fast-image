@@ -1,21 +1,23 @@
-import React, { forwardRef, memo } from 'react'
+import React, { memo } from 'react'
 import {
-    View,
-    Image,
-    NativeModules,
-    requireNativeComponent,
-    StyleSheet,
+    AccessibilityProps,
+    ColorValue,
     FlexStyle,
+    Image,
+    ImageRequireSource,
     LayoutChangeEvent,
+    NativeModules,
+    Platform,
+    requireNativeComponent,
     ShadowStyleIOS,
     StyleProp,
+    StyleSheet,
     TransformsStyle,
-    ImageRequireSource,
-    Platform,
-    AccessibilityProps,
+    View,
     ViewProps,
-    ColorValue,
 } from 'react-native'
+
+const FastImageView = requireNativeComponent<any>('FastImageView')
 
 export type ResizeMode = 'contain' | 'cover' | 'stretch' | 'center'
 
@@ -81,6 +83,7 @@ export interface ImageStyle extends FlexStyle, TransformsStyle, ShadowStyleIOS {
 }
 
 export interface FastImageProps extends AccessibilityProps, ViewProps {
+    ref?: React.Ref<any>
     source?: Source | ImageRequireSource
     defaultSource?: ImageRequireSource
     resizeMode?: ResizeMode
@@ -95,6 +98,17 @@ export interface FastImageProps extends AccessibilityProps, ViewProps {
     onError?(): void
 
     onLoadEnd?(): void
+
+    /**
+     * allowDownscaling
+     *
+     * Default: `true`. Mirrors Expo Image's `allowDownscaling` behavior.
+     * When `true`, the native image pipeline downscales large images to
+     * roughly match the rendered view size, lowering memory usage. When
+     * `false`, the original decoded image is kept (higher quality, higher
+     * memory cost — can OOM on very large images).
+     */
+    allowDownscaling?: boolean
 
     /**
      * onLayout function
@@ -167,16 +181,17 @@ function FastImageBase({
     children,
     // eslint-disable-next-line no-shadow
     resizeMode = 'cover',
-    forwardedRef,
+    allowDownscaling = true,
+    ref,
     ...props
-}: FastImageProps & { forwardedRef: React.Ref<any> }) {
+}: FastImageProps) {
     if (fallback) {
         const cleanedSource = { ...(source as any) }
         delete cleanedSource.cache
         const resolvedSource = Image.resolveAssetSource(cleanedSource)
 
         return (
-            <View style={[styles.imageContainer, style]} ref={forwardedRef}>
+            <View style={[styles.imageContainer, style]} ref={ref}>
                 <Image
                     {...props}
                     style={[StyleSheet.absoluteFill, { tintColor }]}
@@ -198,7 +213,7 @@ function FastImageBase({
     const resolvedDefaultSource = resolveDefaultSource(defaultSource)
 
     return (
-        <View style={[styles.imageContainer, style]} ref={forwardedRef}>
+        <View style={[styles.imageContainer, style]} ref={ref}>
             <FastImageView
                 {...props}
                 tintColor={tintColor}
@@ -211,6 +226,7 @@ function FastImageBase({
                 onFastImageError={onError}
                 onFastImageLoadEnd={onLoadEnd}
                 resizeMode={resizeMode}
+                allowDownscaling={allowDownscaling}
             />
             {children}
         </View>
@@ -219,11 +235,7 @@ function FastImageBase({
 
 const FastImageMemo = memo(FastImageBase)
 
-const FastImageComponent: React.ComponentType<FastImageProps> = forwardRef(
-    (props: FastImageProps, ref: React.Ref<any>) => (
-        <FastImageMemo forwardedRef={ref} {...props} />
-    ),
-)
+const FastImageComponent: React.ComponentType<FastImageProps> = FastImageMemo
 
 FastImageComponent.displayName = 'FastImage'
 
@@ -258,20 +270,5 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
 })
-
-// Types of requireNativeComponent are not correct.
-const FastImageView = (requireNativeComponent as any)(
-    'FastImageView',
-    FastImage,
-    {
-        nativeOnly: {
-            onFastImageLoadStart: true,
-            onFastImageProgress: true,
-            onFastImageLoad: true,
-            onFastImageError: true,
-            onFastImageLoadEnd: true,
-        },
-    },
-)
 
 export default FastImage

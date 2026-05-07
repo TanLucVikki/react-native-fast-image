@@ -13,6 +13,11 @@ typedef NS_ENUM(NSInteger, FFFCacheControl) {
     FFFCacheControlCacheOnly
 };
 
+typedef NS_ENUM(NSInteger, FFFTransition) {
+    FFFTransitionNone,
+    FFFTransitionFade
+};
+
 // Object containing an image uri and metadata.
 @interface FFFastImageSource : NSObject
 

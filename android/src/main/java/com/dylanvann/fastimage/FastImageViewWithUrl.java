@@ -12,7 +12,11 @@ import androidx.appcompat.widget.AppCompatImageView;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.model.GlideUrl;
+import com.bumptech.glide.load.resource.bitmap.DownsampleStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.Request;
+import com.bumptech.glide.request.RequestOptions;
+import android.widget.ImageView;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
@@ -30,6 +34,8 @@ class FastImageViewWithUrl extends AppCompatImageView {
     private boolean mNeedsReload = false;
     private ReadableMap mSource = null;
     private Drawable mDefaultSource = null;
+    private boolean mAllowDownscaling = true;
+    private FastImageTransition mTransition = FastImageTransition.NONE;
 
     public GlideUrl glideUrl;
 
@@ -45,6 +51,40 @@ class FastImageViewWithUrl extends AppCompatImageView {
     public void setDefaultSource(@Nullable Drawable source) {
         mNeedsReload = true;
         mDefaultSource = source;
+    }
+
+    public void setAllowDownscaling(boolean allowDownscaling) {
+        if (mAllowDownscaling != allowDownscaling) {
+            mAllowDownscaling = allowDownscaling;
+            mNeedsReload = true;
+        }
+    }
+
+    public void setTransition(@Nullable String transition) {
+        mTransition = FastImageTransition.fromString(transition);
+    }
+
+    // Pick a Glide DownsampleStrategy that mirrors Expo Image's behavior:
+    //   allowDownscaling=false                    -> NONE
+    //   true + cover (CENTER_CROP)                -> CENTER_OUTSIDE
+    //   true + contain (FIT_CENTER)               -> FIT_CENTER
+    //   true + center (CENTER_INSIDE)             -> AT_MOST
+    //   true + stretch (FIT_XY) / unknown         -> DEFAULT
+    private DownsampleStrategy resolveDownsampleStrategy() {
+        if (!mAllowDownscaling) {
+            return DownsampleStrategy.NONE;
+        }
+        ImageView.ScaleType scaleType = getScaleType();
+        if (scaleType == ImageView.ScaleType.CENTER_CROP) {
+            return DownsampleStrategy.CENTER_OUTSIDE;
+        }
+        if (scaleType == ImageView.ScaleType.FIT_CENTER) {
+            return DownsampleStrategy.FIT_CENTER;
+        }
+        if (scaleType == ImageView.ScaleType.CENTER_INSIDE) {
+            return DownsampleStrategy.AT_MOST;
+        }
+        return DownsampleStrategy.DEFAULT;
     }
 
     private boolean isNullOrEmpty(final String url) {
@@ -130,6 +170,12 @@ class FastImageViewWithUrl extends AppCompatImageView {
         }
 
         if (requestManager != null) {
+            RequestOptions glideOptions = FastImageViewConverter
+                    .getOptions(context, imageSource, mSource)
+                    .placeholder(mDefaultSource) // show until loaded
+                    .fallback(mDefaultSource) // null will not be treated as error
+                    .downsample(resolveDownsampleStrategy());
+
             RequestBuilder<Drawable> builder =
                     requestManager
                             // This will make this work for remote and local images. e.g.
@@ -139,10 +185,15 @@ class FastImageViewWithUrl extends AppCompatImageView {
                             //    - android.resource://
                             //    - data:image/png;base64
                             .load(imageSource == null ? null : imageSource.getSourceForLoad())
-                            .apply(FastImageViewConverter
-                                    .getOptions(context, imageSource, mSource)
-                                    .placeholder(mDefaultSource) // show until loaded
-                                    .fallback(mDefaultSource)); // null will not be treated as error
+                            .apply(glideOptions);
+
+            switch (mTransition) {
+                case FADE:
+                    builder = builder.transition(DrawableTransitionOptions.withCrossFade(300));
+                    break;
+                case NONE:
+                    break;
+            }
 
             if (key != null)
                 builder.listener(new FastImageRequestListener(key));

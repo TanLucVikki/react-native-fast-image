@@ -60,9 +60,11 @@ export type FastImageProps = $ReadOnly<{|
     defaultSource?: ?number,
 
     tintColor?: number | string,
+    blurRadius?: number,
     resizeMode?: ?ResizeModes,
     fallback?: ?boolean,
     testID?: ?string,
+    allowDownscaling?: ?boolean,
 |}>
 
 declare export default class FastImage extends React$Component<FastImageProps> {

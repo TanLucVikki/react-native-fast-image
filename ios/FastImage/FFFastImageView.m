@@ -1,4 +1,6 @@
 #import "FFFastImageView.h"
+#import <SDWebImage/SDImageCache.h>
+#import <SDWebImage/SDWebImageManager.h>
 #import <SDWebImage/UIImage+MultiFormat.h>
 #import <SDWebImage/UIView+WebCache.h>
 
@@ -9,6 +11,7 @@
 @property(nonatomic, assign) BOOL hasErrored;
 // Whether the latest change of props requires the image to be reloaded
 @property(nonatomic, assign) BOOL needsReload;
+@property(nonatomic, assign) CGSize lastThumbnailPixelSize;
 
 @property(nonatomic, strong) NSDictionary* onLoadEvent;
 
@@ -19,6 +22,7 @@
 - (id) init {
     self = [super init];
     self.resizeMode = RCTResizeModeCover;
+    self.allowDownscaling = YES;
     self.clipsToBounds = YES;
     return self;
 }
@@ -102,6 +106,7 @@
 - (void) setSource: (FFFastImageSource*)source {
     if (_source != source) {
         _source = source;
+        _lastThumbnailPixelSize = CGSizeZero;
         _needsReload = YES;
     }
 }
@@ -113,10 +118,37 @@
     }
 }
 
+- (void) setAllowDownscaling: (BOOL)allowDownscaling {
+    if (_allowDownscaling != allowDownscaling) {
+        _allowDownscaling = allowDownscaling;
+        _lastThumbnailPixelSize = CGSizeZero;
+        _needsReload = YES;
+    }
+}
+
+- (void) layoutSubviews {
+    [super layoutSubviews];
+
+    CGSize thumbnailPixelSize = [self thumbnailPixelSize];
+    if (_source && _allowDownscaling && !CGSizeEqualToSize(_lastThumbnailPixelSize, thumbnailPixelSize)) {
+        _needsReload = YES;
+        [self reloadImage];
+    }
+}
+
 - (void) didSetProps: (NSArray<NSString*>*)changedProps {
     if (_needsReload) {
         [self reloadImage];
     }
+}
+
+- (CGSize) thumbnailPixelSize {
+    if (!_allowDownscaling || CGRectIsEmpty(self.bounds)) {
+        return CGSizeZero;
+    }
+
+    CGFloat scale = self.window.screen.scale ?: UIScreen.mainScreen.scale;
+    return CGSizeMake(ceil(CGRectGetWidth(self.bounds) * scale), ceil(CGRectGetHeight(self.bounds) * scale));
 }
 
 - (void) reloadImage {
@@ -150,17 +182,7 @@
             return;
         }
 
-        // Set headers.
-        NSDictionary* headers = _source.headers;
-        SDWebImageDownloaderRequestModifier* requestModifier = [SDWebImageDownloaderRequestModifier requestModifierWithBlock: ^NSURLRequest* _Nullable (NSURLRequest* _Nonnull request) {
-            NSMutableURLRequest* mutableRequest = [request mutableCopy];
-            for (NSString* header in headers) {
-                NSString* value = headers[header];
-                [mutableRequest setValue: value forHTTPHeaderField: header];
-            }
-            return [mutableRequest copy];
-        }];
-        SDWebImageContext* context = @{SDWebImageContextDownloadRequestModifier: requestModifier};
+        SDWebImageContext* context = [self getContext];
 
         // Set priority.
         SDWebImageOptions options = SDWebImageRetryFailed | SDWebImageHandleCookies;
@@ -199,6 +221,42 @@
         [self downloadImage: _source options: options context: context];
     } else if (_defaultSource) {
         [self setImage: _defaultSource];
+    }
+}
+
+- (SDWebImageContext*) getContext {
+    NSDictionary* headers = _source.headers;
+    SDWebImageDownloaderRequestModifier* requestModifier = [SDWebImageDownloaderRequestModifier requestModifierWithBlock: ^NSURLRequest* _Nullable (NSURLRequest* _Nonnull request) {
+        NSMutableURLRequest* mutableRequest = [request mutableCopy];
+        for (NSString* header in headers) {
+            [mutableRequest setValue: headers[header] forHTTPHeaderField: header];
+        }
+        return [mutableRequest copy];
+    }];
+
+    CGSize thumbnailPixelSize = [self thumbnailPixelSize];
+    _lastThumbnailPixelSize = thumbnailPixelSize;
+    if (CGSizeEqualToSize(thumbnailPixelSize, CGSizeZero)) {
+        return @{SDWebImageContextDownloadRequestModifier: requestModifier};
+    }
+    return @{
+            SDWebImageContextDownloadRequestModifier: requestModifier,
+            SDWebImageContextImageThumbnailPixelSize: @(thumbnailPixelSize)
+    };
+}
+
+- (void) setTransition: (FFFTransition)transition {
+    if (_transition == transition) {
+        return;
+    }
+    _transition = transition;
+    switch (transition) {
+        case FFFTransitionFade:
+            self.sd_imageTransition = SDWebImageTransition.fadeTransition;
+            break;
+        case FFFTransitionNone:
+            self.sd_imageTransition = nil;
+            break;
     }
 }
 

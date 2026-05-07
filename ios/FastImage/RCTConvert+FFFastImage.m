@@ -15,6 +15,11 @@ RCT_ENUM_CONVERTER(FFFCacheControl, (@{
                                        @"cacheOnly": @(FFFCacheControlCacheOnly),
                                        }), FFFCacheControlImmutable, integerValue);
 
+RCT_ENUM_CONVERTER(FFFTransition, (@{
+                                     @"none": @(FFFTransitionNone),
+                                     @"fade": @(FFFTransitionFade),
+                                     }), FFFTransitionNone, integerValue);
+
 + (FFFastImageSource *)FFFastImageSource:(id)json {
     if (!json) {
         return nil;
