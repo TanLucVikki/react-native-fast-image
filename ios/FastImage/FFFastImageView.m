@@ -131,6 +131,16 @@
 
     CGSize thumbnailPixelSize = [self thumbnailPixelSize];
     if (_source && _allowDownscaling && !CGSizeEqualToSize(_lastThumbnailPixelSize, thumbnailPixelSize)) {
+        // Skip reload if we already have a decoded image whose pixel size is
+        // greater than or equal to what's now needed. Prevents redundant
+        // decodes (and memory-cache duplicates under different size keys)
+        // when bounds shrink slightly during layout or animations.
+        if (self.image != nil &&
+            thumbnailPixelSize.width <= _lastThumbnailPixelSize.width &&
+            thumbnailPixelSize.height <= _lastThumbnailPixelSize.height) {
+            _lastThumbnailPixelSize = thumbnailPixelSize;
+            return;
+        }
         _needsReload = YES;
         [self reloadImage];
     }
@@ -148,7 +158,17 @@
     }
 
     CGFloat scale = self.window.screen.scale ?: UIScreen.mainScreen.scale;
-    return CGSizeMake(ceil(CGRectGetWidth(self.bounds) * scale), ceil(CGRectGetHeight(self.bounds) * scale));
+    CGFloat width = ceil(CGRectGetWidth(self.bounds) * scale);
+    CGFloat height = ceil(CGRectGetHeight(self.bounds) * scale);
+
+    // Snap to 32px buckets so small layout changes (animations, list item
+    // resize, ±1px deltas) reuse the same SDWebImage cache key and don't
+    // trigger fresh decodes. Without bucketing, the in-memory cache piles
+    // up near-duplicate decoded bitmaps for every distinct pixel size.
+    const CGFloat bucket = 32.0;
+    width = ceil(width / bucket) * bucket;
+    height = ceil(height / bucket) * bucket;
+    return CGSizeMake(width, height);
 }
 
 - (void) reloadImage {

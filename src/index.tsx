@@ -17,8 +17,6 @@ import {
     ViewProps,
 } from 'react-native'
 
-const FastImageView = requireNativeComponent<any>('FastImageView')
-
 export type ResizeMode = 'contain' | 'cover' | 'stretch' | 'center'
 
 const resizeMode = {
@@ -109,6 +107,8 @@ export interface FastImageProps extends AccessibilityProps, ViewProps {
      * memory cost — can OOM on very large images).
      */
     allowDownscaling?: boolean
+
+    transition?: 'fade' | 'none'
 
     /**
      * onLayout function
@@ -234,7 +234,6 @@ function FastImageBase({
 }
 
 const FastImageMemo = memo(FastImageBase)
-
 const FastImageComponent: React.ComponentType<FastImageProps> = FastImageMemo
 
 FastImageComponent.displayName = 'FastImage'
@@ -270,5 +269,20 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
 })
+
+// Types of requireNativeComponent are not correct.
+const FastImageView = (requireNativeComponent as any)(
+    'FastImageView',
+    FastImage,
+    {
+        nativeOnly: {
+            onFastImageLoadStart: true,
+            onFastImageProgress: true,
+            onFastImageLoad: true,
+            onFastImageError: true,
+            onFastImageLoadEnd: true,
+        },
+    },
+)
 
 export default FastImage

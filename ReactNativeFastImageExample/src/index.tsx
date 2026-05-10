@@ -34,8 +34,8 @@ const Home = () => {
       style={styles.cell}
       source={{ uri: item.uri }}
       resizeMode="cover"
-      transition="fade"
-      allowDownscaling
+      allowDownscaling={false}
+      transition='fade'
     />
   )
 
